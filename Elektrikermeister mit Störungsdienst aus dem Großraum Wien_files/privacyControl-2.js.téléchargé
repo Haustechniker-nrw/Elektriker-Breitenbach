@@ -1,0 +1,696 @@
+/** 
+* @author Dominik Kressler
+* @version 2.4.0
+* @date 2021-11-12
+* @description control scripts and iframes that cause in gdpr related problems
+* @dependencies notifications.js@1.1.0, J@1.0.0
+**/
+
+function PrivacyControl(args)
+{
+    _this = this
+
+    if(window.pCinit !== undefined) 
+    {
+        alert("*** PricacyControl Error! ***\n\nPlease don't call PrivacyControl twice!\nPrivacyControl bitte nicht doppelt aufrufen!")
+        return false
+    }
+    else window.pCinit = true
+
+    /**
+     * internal helper to merge the given deps object to the defaults
+     * the function removes deps from obj1 which are set to false in obj2  
+     */
+    var mergeDeps = function(obj1, obj2) {
+        for (var dependency in obj2) {
+            if(obj2[dependency] === false) delete obj1[dependency]
+        }
+        return obj1
+    }
+
+    var params = 
+    {
+        deps:false,
+        sessionName: 'privacy-ctrl',
+        force: false,
+        badge: true,
+        placeholder: '/privacyControl-2.0.placeholder.html',
+        legal_page: {
+            de: '/impressum',
+            en: '/en/legal-notice'
+        },
+        privacy_page: {
+            de: '/datenschutzerklaerung',
+            en: '/en/privacy-policy'
+        },
+        storage: localStorage
+    },
+    loaded = []
+    _this.options = {},
+    _this.options = J.merge(params, args),
+    _this.frames = []
+    _this.storage = params.storage || localStorage
+    _this.options.deps = mergeDeps(_this.options.deps, args.deps)
+
+    if(_this.options.deps === false) return _this
+
+    var docLang = document.documentElement.lang.split('_')[0].toLowerCase()
+    docLang = document.documentElement.lang.split('-')[0].toLowerCase()
+
+    _this.lang = (_this.options.lang === undefined) ? docLang : _this.options.lang
+    if(pCl10n[_this.lang] === undefined) _this.lang = 'en'
+
+    var init = function()
+    {
+        if(_this.options.badge) addBadge()
+        normalizeServices()
+        createMarkup()
+        _this.apply()
+        iframePlaceholder()
+        bindEvents()
+        
+        if(_this.options.force === false || interacted() === true) _this.container.parentElement.parentElement.classList.add('hide')
+
+        return _this
+    };
+
+    var normalizeServices = function()
+    {
+        for(var key in _this.options.deps)
+        {
+            if (typeof _this.options.deps[key] == 'boolean' && pCServiceTemplates[key] !== undefined) 
+            {
+                _this.options.deps[key] = pCServiceTemplates[key]
+            }
+            else if (typeof _this.options.deps[key] == 'object' && pCServiceTemplates[key] !== undefined)
+            {
+                _this.options.deps[key] = J.merge(pCServiceTemplates[key], _this.options.deps[key])
+            }
+        }
+
+        return _this;
+    }
+
+    var getText = function(key, service)
+    {
+        var string = ''
+        try {
+            if(service !== undefined && _this.options.deps[service].l10n[_this.lang][key] !== undefined)
+            {
+                string = _this.options.deps[service].l10n[_this.lang][key]
+            }
+            else if(typeof _this.options[key] === 'object' && _this.options[key][_this.lang] !== undefined)
+            {
+                string = _this.options[key][_this.lang]
+            }
+            else if (pCl10n[_this.lang][key] !== undefined)
+            {
+                string = pCl10n[_this.lang][key]
+            }
+        } catch (error) {
+            console.log('Translation string missing for: '+key);
+        }
+        
+        return string;
+    };
+
+    var createMarkup = function()
+    {
+        _this.container = customTag('privacy-controller')
+        _this.container.id = 'privacy-controller'
+
+        var pheader = customTag('privacy-header', _this.container)
+        pheader.id = 'privacy-header'
+        var ptext = customTag('privacy-text', pheader)
+        ptext.innerHTML = getText('intro')
+
+        var btns = customTag('privacy-buttons', pheader)
+
+        var btn1 = customTag('privacy-btn', btns)
+        btn1.id = 'privacy-open'
+        btn1.setAttribute('href', '#privacy-controller')
+        btn1.innerHTML = getText('settings')
+        
+        var btn2 = customTag('privacy-btn', btns)
+        btn2.id = 'privacy-confirm'
+        btn2.setAttribute('href', '#privacy-confirm')
+        btn2.innerHTML = getText('confirm')
+
+        var fields = customTag('privacy-fields')
+        fields.id = 'privacy-fields'
+        var services = _this.options.deps
+        for (var key in services)
+        {
+            try {
+                var cb = document.createElement('input')
+                cb.type =  'checkbox'
+                cb.setAttribute('name', key)
+                var id = _this.options.sessionName+':'+key
+    
+                var row = customTag('privacy-row', fields)
+    
+                customCells(getText('accept'), '<label for="'+id+'"><input id="'+id+'" name="'+key+'" type="checkbox"><span data-on="'+getText('on')+'" data-off="'+getText('off')+'"></span></label>', row)
+    
+                if(typeof services[key].name !== 'undefined') customCells(getText('name'), services[key].name, row)
+                if(typeof services[key].provider !== 'undefined') customCells(getText('provider'), services[key].provider, row)
+                if(typeof services[key].l10n[_this.lang].description !== 'undefined') customCells(getText('purpose'), services[key].l10n[_this.lang].description, row)
+                if(typeof services[key].l10n[_this.lang].policy !== 'undefined') customCells(getText('policy'), '<a href="'+services[key].l10n[_this.lang].policy+'" target="_blank">Link</a>', row)
+            } catch (error) {
+                console.log('It is missing some properties for that service: '+key)
+            }
+        }
+
+        _this.container.appendChild(fields)
+
+        var footer = customTag('privacy-footer', _this.container)
+        var reset = customTag('privacy-link', footer)
+        reset.id = 'privacy-reset'
+        reset.classList.add('privacy-reset')
+        reset.innerHTML = getText('reset')
+
+        var legal_page = getText('legal_page')
+        if (legal_page && legal_page != '')
+        {
+            var imprint = customTag('privacy-link', footer)
+            imprint.setAttribute('href', legal_page)
+            imprint.innerHTML = getText('legal_notice')
+        }
+
+        var privacy_page = getText('privacy_page')
+        if(privacy_page && privacy_page != '')
+        {
+            var policy = customTag('privacy-link', footer)
+            policy.setAttribute('href', privacy_page)
+            policy.innerHTML = getText('policy')
+        }
+
+        notification.add({id: _this.options.sessionName, message: _this.container, saveState: !_this.options.force, remove: false})
+
+        _this.elms = {}
+        _this.elms.open = btn1
+        _this.elms.submit = btn2
+
+        return _this
+    }
+
+    var customCells = function(cell1, cell2, target)
+    {
+        var cells = []
+        cells[0] = customTag('privacy-cell', target)
+        cells[0].innerHTML = cell1
+        cells[1] = customTag('privacy-cell', target)
+        cells[1].innerHTML = cell2
+        return cells
+    }
+    var customTag = function(name, target)
+    {
+        var elm = document.createElement(name)
+        elm.classList.add(name)
+        if(target) target.appendChild(elm)
+        return elm
+    }
+
+    var open = function()
+    {
+        _this.container.classList.add('open')
+        _this.container.parentElement.parentElement.classList.remove('hide')
+        document.body.classList.add('privacy-control-is-open')
+        _this.elms.open.classList.add('hide')
+        return
+    }
+
+    var close = function()
+    {
+        _this.container.classList.remove('open');
+        document.body.classList.remove('privacy-control-is-open');
+        _this.elms.open.classList.remove('hide');
+        notification.close(_this.options.sessionName);
+        return;
+    }
+
+    var interacted = function()
+    {
+        let storage = getStorage();
+
+        for (let s in storage)
+        {
+            if (storage[s] === true) return true
+        }
+
+        return false
+    };
+
+    var activateButtons = function(key) 
+    {
+        let btns = document.querySelectorAll('[data-privacy-control="'+key+'"]')
+        btns.forEach(function (btn, i) {
+            btn.classList.add('granted', 'activated')
+            btn.dataset.privacyControlConsent = 'true'
+        })
+    }
+
+    var bindEvents = function()
+    {
+        document.addEventListener('click', function(e)
+        {
+            closeInfoBox(true)
+        })
+
+        var buttons = document.querySelectorAll('[data-privacy-control]')
+        for(var i=0; i < buttons.length; i++)
+        {
+            buttons[i].addEventListener('click', function(e)
+            {
+                e.preventDefault()
+
+                var key = this.dataset.privacyControl
+                
+                if(key == '')
+                {
+                    open()
+                }
+                else
+                {
+                    activateButtons(key)
+                    _this.set(key, true)
+                    _this.apply()
+                }
+            })
+        }
+
+        var extraHandler = document.querySelectorAll('[href="#privacy-controller"]')
+        for(var i=0; i < extraHandler.length; i++)
+        {
+            extraHandler[i].addEventListener('click', function(e)
+            {
+                e.preventDefault()
+                open()
+            })
+        }
+
+        var checks = _this.container.querySelectorAll('[type=checkbox]')
+        for(var i = 0; i < checks.length; i++)
+        {
+            checks[i].addEventListener('change', function(e)
+            {
+                if(this.checked) _this.set(this.name, true)
+                else _this.set(this.name, false)
+                
+                _this.apply()
+            })
+        }
+
+        _this.elms.submit.addEventListener('click', function(e)
+        {
+            e.preventDefault()
+
+            _this.set('all', true)
+            _this.apply()
+            close()
+        })
+
+        var resets = document.querySelectorAll('.privacy-reset')
+        for(var i = 0; i < resets.length; i++)
+        {
+            resets[i].addEventListener('click', function(e)
+            {                
+                _this.reset()
+            });
+        }
+
+        _this.container.parentElement.parentElement.querySelector('.close').addEventListener('click', close)
+
+        var links = document.querySelectorAll('.privacy-link')
+        for(var i = 0; i < links.length; i++)
+        {
+            links[i].addEventListener('click', function(e)
+            {                
+                var href = this.getAttribute('href')
+                if(href !== null) 
+                {
+                    var win = window.open(href, '_blank')
+                    win.focus()
+                }
+            })
+        }
+
+        return _this
+    }
+
+    var addBadge = function()
+    {
+        var badge = document.createElement('A')
+        badge.href = '#privacy-controller'
+        badge.classList.add('privacy-control-badge')
+        var span = document.createElement('SPAN')
+        span.innerText = getText('badge')
+        badge.appendChild(span)
+        document.body.appendChild(badge)
+        return badge
+    }
+
+    var iframePlaceholder = function()
+    {
+        var services = _this.options.deps
+
+        for(var key in services)
+        {
+            if(services[key].type == 'iframe')
+            {
+                var elms = document.querySelectorAll('iframe[data-pc-service='+key+']:not(.enabled), iframe[data-iframe='+key+']:not(.enabled)')
+
+                for(var i = 0; i < elms.length; i++)
+                {
+                    var frame = elms[i]
+                    frame.addEventListener('load', function()
+                    {
+                        try {
+                            if(this.classList.contains('enabled')) return false
+                            var frame = this
+                            key = frame.dataset.pcService || frame.dataset.iframe,
+                            doc = frame.contentDocument ? frame.contentDocument : frame.contentWindow.document;
+    
+                            _this.frames.push(frame)
+                            
+                            var policy = (services[key].l10n[_this.lang].policy) ? '<a href="'+services[key].l10n[_this.lang].policy+'" target="_blank">'+services[key].l10n[_this.lang].policy+'</a>' : ''
+                            doc.body.innerHTML = doc.body.innerHTML.replaceAll('{{policy}}', policy)
+                            doc.body.innerHTML = doc.body.innerHTML.replaceAll('{{name}}', services[key].name)
+                            doc.body.innerHTML = doc.body.innerHTML.replaceAll('{{activate}}', getText('activate'))
+                            doc.body.innerHTML = doc.body.innerHTML.replaceAll('{{msg}}', services[key].l10n[_this.lang].description)
+                            doc.body.innerHTML = doc.body.innerHTML.replaceAll('{{provider}}', getText('provider'))
+                            doc.body.innerHTML = doc.body.innerHTML.replaceAll('{{providerName}}', services[key].provider)
+                            doc.body.innerHTML = doc.body.innerHTML.replaceAll('{{key}}', key)
+                            doc.head.innerHTML = doc.head.innerHTML.replaceAll('{{key}}', key)
+                            doc.body.id = key
+                            doc.body.classList.add('enabled')
+        
+                            doc.querySelector('html').lang = _this.lang
+                            
+                            if(services[key].css) doc.head.innerHTML += '<link rel="stylesheet" href="'+services[key].css+'"></link>'
+                            bindInFrameEvent(doc)
+                        } catch (error) {
+                            console.log("Can't handle the placeholder. The service options are broken: "+key)
+                        }
+                    });
+                    frame.dataset.lang = document.querySelector('html').lang
+                    frame.src = _this.options.placeholder+'?key='+key
+                }
+            }
+        }
+    }
+
+    var bindInFrameEvent = function(doc)
+    {
+        var infoOpen = doc.querySelectorAll('.infoOpen')
+        for(var i = 0, c = infoOpen.length; i < c; i++)
+        {
+            infoOpen[i].addEventListener('click', function(e)
+            {
+                e.preventDefault()
+                
+                var frame = document.activeElement
+                var doc = frame.contentDocument ? frame.contentDocument : frame.contentWindow.document
+                
+                doc.querySelector('.infoBox').classList.add('open')
+                doc.querySelector('.infoOpen').classList.add('hide')
+            })
+        }
+
+        var infoClose = doc.querySelectorAll('.infoClose')
+        for(var i = 0, c = infoClose.length; i < c; i++)
+        {
+            infoClose[i].addEventListener('click', closeInfoBox)
+        }
+
+        doc.addEventListener('keydown', function(e)
+        {
+            if (e.keyCode == 27) closeInfoBox()
+            return
+        });
+
+        var btn = doc.querySelector('.accept')
+        btn.addEventListener('click', function(e)
+        {
+            e.preventDefault()
+            e.stopPropagation()
+            
+            var key = document.activeElement.dataset.iframe || document.activeElement.dataset.pcService
+
+            _this.set(key, true)
+            _this.apply()
+
+            return
+        }, false)
+    }
+
+    var closeInfoBox = function(all)
+    {
+        var frames = (all === null || all === false) ? [document.activeElement] : _this.frames
+
+        for(var i in frames)
+        {
+            try {
+                doc = frames[i].contentDocument ? frames[i].contentDocument : frames[i].contentWindow.document
+
+                doc.querySelector('.infoBox').classList.remove('open')
+                doc.querySelector('.infoOpen').classList.remove('hide')
+            } catch (error) {
+            }
+        }
+    }
+
+    var applyInterface = function()
+    {
+        for(var key in _this.options.deps)
+        {
+            var val = _this.options.deps[key]
+            var status = _this.get(key)
+
+            if(status === undefined) 
+            {
+                status = false
+                _this.set(key, status)
+            }
+            
+            var id = _this.options.sessionName+':'+key
+            var input = document.getElementById(id)
+            input.checked = status
+        }
+
+        return _this
+    }
+
+    var loadDep = function(key, type)
+    {
+        if(loaded[key] === true) return false;
+        switch(type)
+        {
+            case "script":
+
+                try
+                {
+                    if(_this.options.deps[key].src !== undefined)
+                    {
+                        var srcs = _this.options.deps[key].src;
+                        if(typeof srcs != 'object')
+                        {
+                            srcs = [srcs];
+                        }
+
+                        rIt({
+                            "*": {
+                                "assets": srcs,
+                                "function": _this.options.deps[key].callback
+                            }                            
+                        });
+                    }
+                    else
+                    {
+                        var scripts = document.querySelectorAll('script[data-script="'+key+'"], script[data-pc-service="'+key+'"]');
+                        for(var i = 0, l = scripts.length; i < l; i++)
+                        {
+                            if(i==l-1) scripts[i].addEventListener('load', _this.options.deps[key].callback);
+                            scripts[i].src = scripts[i].dataset.pcAsset;
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.log('Could not load script for '+key+', no src defined.');
+                }
+
+            break;
+            case "iframe":
+
+                var iframes = document.querySelectorAll('[data-iframe="'+key+'"], iframe[data-pc-service="'+key+'"]');
+
+                for (var i in iframes)
+                {
+                    if(typeof iframes[i] == 'object' && iframes[i].dataset) 
+                    {
+                        var placeholder = iframes[i].pcAsset;
+                        var src = iframes[i].dataset.pcAsset || iframes[i].dataset.src;
+
+                        iframes[i].dataset.pcAsset = placeholder;
+                        iframes[i].src = src;
+                        iframes[i].classList.add('enabled', 'pc-loaded');
+                        iframes[i].classList.remove('pc-unloaded');
+                        iframes[i].dataset.frameId = (new Date()).getTime();
+                    }
+                }
+
+            break;
+            case "image":
+
+                let images = document.querySelectorAll('img[data-pc-service="'+key+'"]');
+                for(let img of images)
+                {
+                    let temp = img.src;
+                    img.src = img.dataset.pcAsset;
+                    img.dataset.pcAsset = temp;
+                    img.classList.add('pc-loaded');
+                    img.classList.remove('pc-unloaded');
+                }
+
+            break;
+        }
+
+        loaded[key] = true;
+
+        activateButtons(key);
+
+        return true;
+    };
+
+    var unloadDep = function(key, type)
+    {
+        if(loaded[key] === false) return false;
+        switch(type)
+        {
+            case "iframe":
+
+                var iframes = document.querySelectorAll('[data-iframe="'+key+'"], iframe[data-pc-service="'+key+'"]');
+                for (var i in iframes)
+                {
+                    if(typeof iframes[i] == 'object' && iframes[i].dataset) 
+                    {
+                        var placeholder = iframes[i].dataset.src;
+                        var src = iframes[i].src;
+
+                        iframes[i].classList.remove('enabled', 'pc-loaded');
+                        iframes[i].classList.add('pc-unloaded');
+                        iframes[i].dataset.pcAsset = src;
+                        iframes[i].src = placeholder;
+                        iframePlaceholder();
+                    }
+                }
+
+            break;
+            case "image":
+                let images = document.querySelectorAll('img[data-pc-service="'+key+'"]');
+                for(let img of images)
+                {
+                    let temp = img.src;
+                    img.src = img.dataset.pcAsset;
+                    img.dataset.pcAsset = temp;
+                    img.classList.remove('pc-loaded');
+                    img.classList.add('pc-unloaded');
+                }
+            break;
+        }
+
+        loaded[key] = false;
+
+        return true;        
+    };
+
+    var getStorage = function()
+    {
+        var storage = _this.storage.getItem(_this.options.sessionName);
+        storage = (storage === null || storage === '' || storage === false) ? {} : JSON.parse(storage);
+
+        return storage;
+    };
+
+    _this.apply = function()
+    {
+        var storage = _this.get('all');
+
+        for(var key in storage)
+        {
+            if(_this.options.deps[key] === undefined) continue;
+            var type = _this.options.deps[key].type;
+
+            if(_this.options.deps[key] === undefined || storage[key] === false)
+            {
+                if(key !== undefined && loaded[key] === true) unloadDep(key, type);
+            }
+            else
+            {
+                if(key !== undefined) loadDep(key, type);
+            }
+        }
+
+        applyInterface();
+        return _this;
+    };
+
+    _this.set = function(key, status)
+    {
+        var storage = getStorage();
+        if(key === 'all')
+        {
+            for(var i in storage)
+            {
+                _this.set(i, status);
+            }
+        }
+        else
+        {
+            storage[key] = status;
+            try {
+                _this.storage.setItem(_this.options.sessionName, JSON.stringify(storage));
+                if(!_this.options.deps[key]) throw new Error("Key "+key+" is missing in the PrivacyControl deps configuration object.");
+                if(_this.options.deps[key].forceReload !== undefined && _this.options.deps[key].forceReload === true && document.readyState === 'complete') window.location.reload();
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        return storage;
+    };
+
+    _this.get = function(key)
+    {
+        var storage = getStorage();
+        if(key == 'all') return storage;
+        return storage[key];
+    };
+
+    _this.reset = function()
+    {
+        _this.storage.setItem(_this.options.sessionName, '{}');
+        _this.storage.removeItem('note-'+_this.options.sessionName);
+
+        location.reload(); 
+        return _this.get('all');
+    };
+
+    _this.please = function()
+    {
+        _this.set('all', true);
+        console.info("%c Hello my dear, I appreciate that you ask me to enable all services now and you're welcome. But keep in mind, you should not!", 'background: #222; color: #bada55');
+        _this.apply();
+
+        return "This is a shortcut for set('all', true) and apply()";
+    }
+
+    return init();
+}
+
+if(String.prototype.replaceAll === undefined)
+{
+    String.prototype.replaceAll = function(search, replacement) {
+        var target = this;
+        return target.replace(new RegExp(search, 'g'), replacement);
+    };
+}

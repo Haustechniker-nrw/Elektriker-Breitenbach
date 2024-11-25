@@ -1,0 +1,82 @@
+/**
+ * @desc lazyload any src or srcset attribute
+ * @author Dominik Kressler
+ * @editor Dario Rieke
+ * @version 2.0.1
+ */
+var LazyLoad = function(options) {
+    var defaults = {
+        offset: '100px',
+        threshold: 0,
+        selector: '',
+        nodeList: false,
+        observe: false
+    }
+
+    var settings = J.merge(defaults, options)
+    settings.nodes = false
+
+    if(settings.nodeList && J.isNodeElement(settings.nodeList)) settings.nodes = settings.nodeList
+    if(settings.nodes === false) settings.nodes = document.querySelectorAll(settings.selector)
+   
+    if(settings.nodes instanceof NodeList) settings.nodes = Array.prototype.slice.call(settings.nodes)
+    else settings.nodes = [settings.nodes]
+
+    if(settings.nodes.length === 0) return this
+
+    const observer = new IntersectionObserver((entries, obs) => {
+        for(let entry of entries) {
+            if(entry.isIntersecting === false) continue
+            let elem = entry.target;
+            const loadedCallbackTarget = elem.nodeName != 'PICTURE' ? elem : elem.querySelector('img');
+            loadedCallbackTarget.classList.add('lazy-processing', 'is-on-screen');
+            loadedCallbackTarget.addEventListener('load', (e) => { e.target.classList.add('lazy-loaded') });
+
+            if(elem.nodeName == 'PICTURE')
+            {
+                var childs = elem.querySelectorAll('img, source')
+                for(let child of childs)
+                {
+                    if(child.hasAttribute('data-src')) child.setAttribute('src', child.getAttribute('data-src'))
+                    if(child.hasAttribute('data-srcset')) child.setAttribute('srcset', child.getAttribute('data-srcset'))
+                }
+            }
+            else if(elem.nodeName == 'IMG')
+            {
+                if(elem.hasAttribute('data-srcset')) elem.srcset = elem.getAttribute('data-srcset')
+                if(elem.hasAttribute('data-src')) elem.src = elem.getAttribute('data-src')
+            }
+            else if(elem.nodeName == 'IFRAME')
+            {
+                elem.src = elem.getAttribute('data-src')
+            }
+            else
+            {
+                elem.classList.add('lazy-loaded')
+            }
+
+            observer.unobserve(elem)
+        }
+    }, {
+        rootMargin: settings.offset,
+        threshold: settings.threshold
+    })
+    for(let node of settings.nodes) {
+        observer.observe(node)
+    }
+
+    if("MutationObserver" in window && settings.observe)
+    {    
+        const observer = new MutationObserver(function(mutationsList, observer) {
+            let re = new RegExp(',', 'g')
+            let newSelector = settings.selector.replace(re, ':not(.lazy-processing),') + ':not(.lazy-processing)'
+            for(let mutation of mutationsList) {
+                new LazyLoad({offset: settings.offset, threshold: settings.threshold, selector:settings.selector, nodeList: document.querySelectorAll(newSelector), observe: false})
+            }
+        });
+    
+        observer.observe(settings.observe, {childList: true, subtree: true})
+    }
+
+    return this
+}

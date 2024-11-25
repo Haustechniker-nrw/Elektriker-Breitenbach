@@ -1,0 +1,86 @@
+/**
+ * @desc display custom user notifications
+ * @author Dominik Kressler
+ * @version 1.2.1
+ * @modified 2021-08-17
+ */
+ var Notification = function () 
+ {
+     var container = document.createElement("notifications");
+     container.classList.add("notification-area");
+     document.body.appendChild(container);
+     this.container = container;
+     return this;
+ };
+ Notification.prototype.add = function (options) 
+ {
+     var defaults = {
+       id: "",
+       classNames: "",
+       message: "",
+       saveState: false,
+       remove: true,
+       discard: false,
+       storage: window._storageDisabled ? window.getStorage() : localStorage
+     };
+     var settings = J.merge(defaults, options);
+     var notification = document.createElement("notification");
+     notification.id = settings.id;
+ 
+     var noteContent = document.createElement("note-content");
+     noteContent.classList.add("note-content");
+ 
+     notification.setAttribute("saveState", settings.saveState);
+     notification.className = "notification " + settings.classNames;
+     notification.appendChild(noteContent);
+ 
+     if (typeof settings.message == "string") {
+       noteContent.innerHTML = settings.message;
+     } else {
+       noteContent.appendChild(settings.message);
+     }
+ 
+     var close = document.createElement("close");
+     close.classList.add("close");
+     close.innerHTML = "&times;";
+     notification.appendChild(close);
+ 
+     close.addEventListener("click", function (e) 
+     {
+         var parent = this.parentElement;
+         parent.classList.add("hide");
+ 
+         if (settings.remove == true) {
+             parent.addEventListener("transitionend", function () {
+                 this.remove();
+             });
+         }
+ 
+         if (parent.getAttribute("saveState") == "true") {
+             settings.storage.setItem("note-" + notification.id, "discarded");
+         } else {
+             settings.storage.setItem("note-" + notification.id, "");
+         }
+     });
+ 
+     this.container.appendChild(notification);
+ 
+     setTimeout(function () {
+         notification.classList.add("transition-in");
+     }, 300);
+ 
+     if (settings.storage.getItem("note-" + settings.id) == "discarded") {
+         close.click();
+     } else if (settings.discard) {
+         setTimeout(function () {
+             close.click();
+         }, settings.discard + 300);
+     }
+     return this;
+ };
+ Notification.prototype.close = function (id) 
+ {
+     document.getElementById(id).querySelector(".close").click();
+ };
+ notification = new Notification();
+ 

@@ -1,0 +1,272 @@
+/**
+ * off-canvas nav
+ * @name ruffnav
+ * @author Dominik Kressler
+ * @version 2.2.5
+ * @thanks Jasmin Reiff
+ * @edit by Malte Zoudlik
+ * @copyright (c) 2018
+ */
+ function Ruffnav(options) {
+    this.options = J.merge({
+        toggler: '#navi-toggled',
+        container: '#navigation',
+        navList: '.navi-main',
+        subParent: '.has-sub',
+        subClass: '.sub',
+        backText: false,
+        mobileBreak: 'large',
+        closeOnScroll: true,
+        desktopHover: false,
+        navSplit: false,
+        navAppend: false
+    }, options);
+    this.depth = 0;
+    this.toggler = document.querySelector(this.options.toggler);
+    this.container = document.querySelector(this.options.container);
+    this.navList = this.container.querySelector(this.options.navList)
+    this.sub = this.container.querySelectorAll(this.options.subClass);
+    this.subParent = this.container.querySelectorAll(this.options.subParent);
+    this.html = document.documentElement;
+    this.device = breakpoint(this.options.mobileBreak) ? 'desktop' : 'mobile';
+    this.isOpen = false;
+    this.subToggler = null;
+    this.windowSize = window.innerWidth;
+    this.navSize = 0;
+    this.activePath = '';
+    this.path = window.location.pathname.split('/').filter(function(el) {return el != ''});
+
+    // set back button text by language, or by overwrite
+    if(this.options.backText === false)
+    {
+        var html = document.querySelector('html');
+        this.options.backText = (html.lang == 'de') ? 'Zurück' : 'back';
+    }
+
+    this.backButton = create('li', {
+        'class': 'nav-back',
+        'tabindex': '0'
+    }, '<span>'+this.options.backText+'</span>');
+
+    var self = this;
+    this.init = function() {
+        // add class for desktop hover
+        self.container.classList.add('first-level'); 
+        if(self.options.desktopHover) self.container.classList.add('hover-navigation');
+
+        // append custom Content to Navigation
+        if(self.options.navAppend) {
+            var itemToAppend = create('li', {'class': 'nav-item appended-item'}, self.options.navAppend);
+            self.navList.appendChild(itemToAppend);
+        }
+
+        self.navSize = self.navList.childNodes.length;
+        // split navigation in half
+
+        // transform Navigation markup
+        [].forEach.call(self.subParent, function(parentItem) {
+            var childNode = parentItem.firstElementChild,
+                categoryLabel = (childNode.dataset && childNode.dataset.categoryLabel) ? childNode.dataset.categoryLabel : childNode.innerHTML; 
+
+            // parent-name attribute for UL's
+            childNode.nextElementSibling.setAttribute('data-parent-name', childNode.innerText);
+                
+            // only clone when Element is a link
+            if(childNode.nodeName !== 'SPAN') {
+                // var cActive = (window.location.origin+window.location.pathname === childNode.href) ? 'active' : '';
+
+                // copy link inside UL's
+                childNode.nextElementSibling.insertBefore(create('li', {
+                    'class': 'nav-item '+childNode.className.trim()
+                }, '<a href="'+childNode.href+'" title="'+childNode.title+'">'+categoryLabel+'</a>'), parentItem.children[1].children[0]);
+                if(self.path.length) {
+                    self.activeClassFallback(childNode);
+                }
+            }
+            // replace link's with span's
+            parentItem.replaceChild(create('span', {
+                'class': 'sub-toggler '+childNode.className.trim(),
+                'tabindex': 0,
+                'data-href': childNode.href
+            }, childNode.innerHTML), childNode)
+        });
+        [].forEach.call(self.sub, function(subItem){
+            // add backbuttons to UL's
+            subItem.insertBefore(self.backButton.cloneNode(true), subItem.childNodes[0]);
+        });
+
+        if(self.options.navSplit) {
+            var elm;
+            var splitList = create('ul', {class: "navi split-list"});
+            for (var i = parseInt(self.navSize / 2); i != splitList.childNodes.length; i) {
+                elm = self.navList.childNodes[i].cloneNode(true);
+                splitList.appendChild(elm)
+                self.navList.childNodes[i].remove();
+            }   
+            self.navList.parentElement.appendChild(splitList);
+        }
+
+        // close on mobile toggle
+        self.toggler.addEventListener('click', self._closeAll);
+
+        // add Listeners for different events
+        self.addListener();
+
+        // add global resize listener
+        self.listenResize();
+
+        return self;
+    }
+    this._open = function(e) {
+        // open event
+        var target, sameLevelCurrents;
+
+        if(e.type === 'mouseenter' && self.device === "mobile") return;
+        if(e.type === 'mouseenter') {
+            target = e.target;
+            target.childNodes[1].classList.add('current');
+            if(self.container.querySelector('.open') != null) self.container.querySelector('.open').classList.remove('open');
+            target.childNodes[1].classList.add('open');
+        } else {
+            target = e.currentTarget;
+            
+            //close other on same level when already opened
+            sameLevelCurrents = target.parentElement.parentElement.querySelector('.current');
+            if(sameLevelCurrents !== null) self.closeRecusive(sameLevelCurrents, false)
+
+            target.nextElementSibling.classList.add('current');
+            if(self.container.querySelector('.open') != null) self.container.querySelector('.open').classList.remove('open');
+            target.nextElementSibling.classList.add('open');
+        }
+        if(!self.isOpen && self.device !== 'mobile') {
+            if(self.options.closeOnScroll) window.addEventListener('scroll', self._closeAll);
+            document.addEventListener('click', self._closeAll);
+            document.addEventListener('keydown', self._closeAll);
+            self.isOpen = true;
+        }
+        self.container.classList.remove('first-level');
+        self.scrollTop();
+    }
+    this._close = function(e) {
+        // close event
+        var currentListTree;
+        
+        if(e.type === 'mouseleave' && self.device === "mobile") return;
+        if(e.type === 'mouseleave') currentListTree = e.currentTarget;
+        else currentListTree = e.currentTarget.parentElement;
+        
+        self.closeRecusive(currentListTree, false);
+        if(self.container.querySelectorAll('ul.current').length === 0) self.isOpen = false;
+        if(self.container.querySelectorAll('ul.current').length === 0) self.container.classList.add('first-level');
+
+        self.scrollTop();
+    }
+    this._closeAll = function(e) {
+        (self.toggler.checked) ? self.html.classList.add('hidden-scroll') : self.html.classList.remove('hidden-scroll');
+        // close all
+        if(e.type === 'scroll') {
+            self.closeRecusive(null, true);
+        } else if(e.type === 'click') {
+            // check if click was not inside navigation
+            if(e.target === self.container || self.container.contains(e.target)) return;
+            else self.closeRecusive(null, true)
+        } else if(e.type === 'keydown') {
+            // check if "enter" was pressed
+            if(e.keyCode === 27) self.closeRecusive(null, true);
+        } else {
+            self.closeRecusive(null, true);
+        }
+        self.removeListeners();        
+        self.isOpen = false
+    }
+    this.closeRecusive = function(firstList, closeAll) {
+        // close all open items
+        if(closeAll) {
+            [].forEach.call(self.container.querySelectorAll('.current'), function(openSubs) {openSubs.classList.remove('current')});
+            if(self.container.querySelector('.open') != null) self.container.querySelector('.open').classList.remove('open');
+            self.container.classList.add('first-level');
+        } else {
+            if(self.container.querySelector('.open') != null) self.container.querySelector('.open').classList.remove('open');
+            [].forEach.call(firstList.querySelectorAll('.current'), function(openSubs){
+                openSubs.classList.remove('current');
+            });
+            firstList.parentNode.parentNode.classList.add('open');
+            firstList.classList.remove('current');
+        }
+    }
+    this.removeListeners = function() {     
+        // remove eventListener for global close
+        window.removeEventListener('scroll', self._closeAll);
+        document.removeEventListener('keydown', self._closeAll);
+        document.removeEventListener('click', self._closeAll);
+    }
+    this.addListener = function() {
+        // add eventListener to subToggle and back
+        self.subToggler = self.container.querySelectorAll('.sub-toggler');
+        self.backButtons = self.container.querySelectorAll('.nav-back');
+        [].forEach.call(self.subToggler, function(subTogglerItem){
+            if(self.options.desktopHover) {
+                subTogglerItem.parentNode.addEventListener('mouseenter', self._open);
+                subTogglerItem.parentNode.addEventListener('mouseleave', self._close);
+            }
+            subTogglerItem.addEventListener('click', self._open);
+        });
+        [].forEach.call(self.backButtons, function(backButtonsItem){
+            backButtonsItem.addEventListener('click', self._close, false);
+        });
+    }
+    this.listenResize = function() {
+        // global resize Event
+        window.onresize =  function(){
+            self.device = breakpoint(self.options.mobileBreak) ? 'desktop' : 'mobile';
+            if(self.device === 'mobile') self.removeListeners();
+            if(self.windowSize != window.innerWidth && self.device === 'desktop') {
+                self.closeRecusive(null, true);
+                self.isOpen = false;
+            }
+            self.windowSize = window.innerWidth;
+        }
+    }
+
+    this.scrollTop = function() {
+        [].forEach.call(self.sub, function(item) {item.scrollTop = 0} )
+        self.container.childNodes[0].scrollTop = 0;
+    }
+
+    function create(type, attr, content) {
+        // create Node element
+        var elm = document.createElement(type);
+        [].forEach.call(Object.entries(attr), function(name){
+            elm.setAttribute(name[0], name[1]);
+        });
+        if(content) elm.innerHTML = content;
+        return elm
+    }
+
+    this.activeClassFallback = function(elem) {
+        if(elem.href === window.location.origin + '/' + this.activePath + this.path[0]+'/') {
+            elem.classList.add('active');
+            if(elem.parentNode.classList.contains(self.options.subParent.substring(1))) elem.parentNode.classList.add('active')
+            if(this.path.length === 1) elem.parentNode.querySelector('[href="'+window.location.origin+'/' + this.activePath + this.path[0]+'/"]').classList.add('active');
+            this.activePath += this.path[0] + '/';
+            this.path.splice(0,1);
+        }
+    }
+
+    this.init();
+}
+if (!Object.entries)
+Object.entries = function( obj ){
+    var ownProps = Object.keys( obj ),
+        i = ownProps.length,
+        resArray = new Array(i); // preallocate the Array
+    while (i--)
+    resArray[i] = [ownProps[i], obj[ownProps[i]]];
+
+    return resArray;
+};
+if (!('remove' in Element.prototype)) { 
+    Element.prototype.remove = function() { 
+        if (this.parentNode) this.parentNode.removeChild(this); 
+    }; 
+} 

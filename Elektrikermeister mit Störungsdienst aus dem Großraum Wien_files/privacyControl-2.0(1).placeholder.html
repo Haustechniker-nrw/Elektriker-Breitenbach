@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<!-- saved from url=(0078)https://www.elektro-czigler.at/privacyControl-2.0.placeholder.html?key=youtube -->
+<html lang="de"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Please confirm the usage of this third-party service</title>
+    <style type="text/css">
+    *, *:before, *:after {
+        margin:0;
+        padding:0;
+        font-family:sans-serif;
+        box-sizing:border-box
+    }
+    body {
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        flex-direction:column;
+        height:100vh;
+        background:#eee;
+        font-size:11px;
+        line-height:16px;
+        padding:20px;
+        text-align:center;
+        color:#333;
+        opacity:0;
+        transition:300ms opacity ease-in-out;
+        background-size:cover
+    }
+    body.enabled {
+        opacity: 1
+    }
+    p {
+        max-width:300px;
+        margin-bottom:10px
+    }
+    a {
+        color:#333
+    }
+    .btn {
+        background:transparent;
+        color:#333;
+        border:2px solid #333;
+        padding:10px 20px;
+        display:flex;
+        cursor:pointer;
+        display:inline-block;
+        margin-bottom:10px;
+        transition:300ms all ease-in-out;
+        position:relative
+    }
+    body:hover .btn {
+        background:#333;
+        color:#eee
+    }
+    input {
+        visibility:hidden;
+        opacity:0
+    }
+    .infoOpen,.infoClose
+    {
+        display:none;
+        cursor:pointer
+    }
+    @media screen and (max-height:330px)
+    {
+        .infoBox {
+            opacity:0;
+            visibility:hidden;
+            position:fixed;
+            top:50%;
+            left:50%;
+            transform: translate(-50%, 0);
+            background:#eee;
+            box-shadow:0 0 5px 0 rgba(0,0,0,.3);
+            width:320px;
+            height:auto;
+            max-width:90%;
+            max-height:80%;
+            padding:45px 35px 10px 10px;
+            transition:300ms all ease-in-out
+        }
+        .infoBox:before {
+            content: "Information";
+            position:absolute;
+            padding:10px;
+            font-weight:bold;
+            width:100%;
+            top:0;
+            left:0;
+            text-align:left;
+            background:#e2e2e2
+        }
+        .infoBox p
+        {
+            text-align:left;
+            margin-bottom:0
+        }
+        .infoBox.open {
+            opacity:1;
+            visibility:visible;
+            pointer-events:all;
+            transform: translate(-50%, -50%)
+        }
+        .infoOpen.hide
+        {
+            opacity:0;
+        }
+        .infoOpen, .infoClose {
+            display:block;
+            background:#333;
+            color:#eee;
+            border-radius:50%;
+            width:17px;
+            line-height:17px;
+            text-align:center;
+            font-family:serif;
+            font-size:13px;
+            position:absolute;
+            right:10px;
+            top:10px;
+            transition:300ms all ease-in-out
+        }
+        .infoClose {
+            font-family:sans-serif
+        }
+    }
+    body#youtube:after,
+    body#youtube:before {
+        content:"";
+        height:39px;
+        width:100%;
+        display:block;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        background-image:url('/privacyControl.placeholder-youtube.png');
+        background-repeat:no-repeat;
+        background-position: left bottom;
+        filter:blur(2px)
+    }
+    body#googlemaps {
+        background-image:url('/privacyControl.placeholder-map-mobile.jpg')
+    }
+    body#autoscout {
+        background-image:url('/privacyControl.placeholder-autoscout-mobile.jpg')
+    }
+    body#mobilede {
+        background-image:url('/privacyControl.placeholder-mobilede-mobile.jpg')
+    }
+    body#immoscout {
+        background-image:url('/privacyControl.placeholder-immoscout-mobile.jpg')
+    }
+    body#youtube {
+        background-image:url('/privacyControl.placeholder-youtube-mobile.jpg')
+    }
+    @media screen and (min-width:600px) {
+        body#googlemaps {
+            background-image:url('/privacyControl.placeholder-map.jpg')
+        }
+        body#autoscout {
+            background-image:url('/privacyControl.placeholder-autoscout.jpg')
+        }
+        body#mobilede {
+            background-image:url('/privacyControl.placeholder-mobilede.jpg')
+        }
+        body#immoscout {
+            background-image:url('/privacyControl.placeholder-immoscout.jpg')
+        }
+        body#youtube {
+            background-image:url('/privacyControl.placeholder-youtube.jpg')
+        }
+    }
+    body#youtube a {
+        color:#ff0000
+    }
+    </style>
+</head>
+<body id="youtube" class="enabled">
+    <span class="btn accept" data-key="youtube">YouTube: akzeptieren</span>
+
+    <p><strong>Anbieter: Google Ireland Limited</strong></p>
+
+    <span class="infoOpen" for="info">i</span>
+    <div class="infoBox">
+        <span class="infoClose" for="info">×</span>
+        <p>Bei der Nutzung dieses Dienstes werden Daten an Google über­mittelt, außer­dem ist es wahr­scheinlich, dass Google Daten (z. B. Cookies) auf Ihrem Gerät speichert.</p>
+    </div>
+
+    <p><a href="https://policies.google.com/privacy?hl=de&amp;gl=de" target="_blank">https://policies.google.com/privacy?hl=de&amp;gl=de</a></p>
+
+</body></html>

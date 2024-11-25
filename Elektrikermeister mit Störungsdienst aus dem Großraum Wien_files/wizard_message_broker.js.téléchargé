@@ -1,0 +1,2 @@
+window.WizardMessageBroker=new class{constructor(){this.events={},this.bufferedEvents={}}waitFor(e,s){let t=e.length,n={};e.forEach((e=>{this.on(e,(h=>{n[e]=h,t--,0===t&&s(n)}))}))}on(e,s){this.bufferedEvents[e]&&(this.bufferedEvents[e].events.forEach((e=>{s(e)})),this.bufferedEvents[e].events=[]),this.events[e]||(this.events[e]=[]),this.events[e].push(s)}fireEvent(e,s){this.events[e]?this.events[e].forEach((e=>{e(s)})):(this.bufferedEvents[e]||(this.bufferedEvents[e]={events:[]}),this.bufferedEvents[e].events.push(s))}};
+//# sourceMappingURL=wizard_message_broker.js.map

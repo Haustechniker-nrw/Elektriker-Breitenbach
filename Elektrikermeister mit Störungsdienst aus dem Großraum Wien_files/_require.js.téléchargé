@@ -1,0 +1,90 @@
+rIt({
+    "*": {
+        "assets": ["/js/_essentials/notifications.js", "/js/_essentials/basics.js", "/js/_essentials/ruffnav.js", "/privacyControl-2.0.conf.js", "/js/_essentials/privacyControl-2.js","/js/vendor/scrolly.min.js","/js/vendor/aos.js"],
+        "function": "always"
+    },
+    "body.isOldBrowser": {
+        "assets": ["/js/_essentials/note.oldBrowser.js"]
+    },
+    "body.dev-mode": {
+        "assets": ["/js/_essentials/devMode.js"]
+    },
+    ".cms-image.lightbox-zoom-image, .cms-gallery.modalGallery":  {
+        "assets": ["/js/vendor/baguetteBox.js"],
+        "function":function(selector) {
+            baguetteBox.run(selector, {noScrollbars:true, async: true, preload: 0});
+        }
+    },
+    "picture, :not(picture) > img[data-src], .lazy-bg": {
+        "assets": ["/js/_essentials/basics.js", "/js/_essentials/lazyLoad.js"],
+        "function":function(selector) {
+            new LazyLoad({selector: selector});
+        }
+    },
+    "form[action*='formixapp.com']:not([data-evercaptcha])": {
+        "assets": ["/js/_essentials/basics.js", "/js/_essentials/formix.js"],
+        "function": function (selector) {
+            new Formix({ selector: selector });
+        }
+    },
+    "form[data-evercaptcha]": {
+        "assets": ["/js/_essentials/basics.js", "/js/_essentials/formix.js", "/securewebapps/evercdn/assets/evercaptcha/v1/scripts/main.min.js"],
+        "function": function (selector) {
+            const formix = new Formix({
+                selector: selector,
+                eventName: "evercaptcha-valid"
+            });
+            const everCaptcha = new EverCAPTCHA(selector, true, {
+                hookSending: true
+            });
+        },
+        "lazy": true
+    }
+});
+
+function always() {
+    new Ruffnav();
+    new ScrollDir(document.body);
+    new Prefetcher();
+    new Scrolly();
+
+    privacyCtrl = new PrivacyControl({
+        deps: {
+            googlemaps: true,
+            youtube: true,
+            gtag: {
+                type: 'script',
+                name: 'Google Analytics',
+                provider: 'Google Ireland Limited',
+                l10n: {
+                    de: {
+                        description: 'Bei der Nutzung dieses Dienstes werden Daten an Google über&shy;mittelt, außer&shy;dem ist es wahr&shy;scheinlich dass Google Daten (z.B. Cookies) auf Ihrem Gerät speichert.',
+                        policy: 'https://policies.google.com/privacy?hl=de&gl=de'
+                    },
+                    en: {
+                        description: 'By using this service data will be transmitted to the mentioned provider, furthermore it\'s likely that this provider saves data (e.g. Cookies) on your device.',
+                        policy: 'https://policies.google.com/privacy'
+                    }
+                },
+                src: ['/js/_essentials/gtag.js'],
+            }
+        },
+       
+    });
+    AOS.init({
+        disable: window.innerWidth < 992, 
+        duration: 600,
+        easing: 'ease-in-out-sine',
+        once: true,
+        offset: 50,
+        delay: 250
+    });
+}
+
+/**
+ * require it! (dependencies)
+ * @author Dominik Kressler
+ * @version 1.0.0
+ * @date 2021-02-09
+ */
+function rIt(rules){if(Object.keys(rules).length===0||rules.constructor!==Object){return false}let instantRules={},lazyRules={};if(!window.rItLoaded){window.rItLoaded=[]}for(let key in rules){if(!(rules[key].assets instanceof Array)){rules[key].assets=[]}rules[key].selector=key;if(document.querySelector(key)!==null){if(rules[key].lazy){lazyRules[key]=rules[key]}else{instantRules[key]=rules[key]}}}loadAsset=async asset=>{if(window.rItLoaded.indexOf(asset)>-1){return false}return new Promise((resolve,reject)=>{window.rItLoaded.push(asset);if(asset.indexOf('.css',asset.length-4)!==-1||asset.indexOf('rforce=css')>-1){var node=document.createElement('link');node.setAttribute('href',asset);node.setAttribute('rel','stylesheet')}else{var node=document.createElement('script');node.src=asset;node.setAttribute('defer','defer')}node.onload=async()=>{resolve(true)};document.body.appendChild(node)})};if(Object.keys(lazyRules).length>0){let observer=new IntersectionObserver(function(entries){if(entries[0].intersectionRatio<=0){return;}let selector=entries[0].target.dataset.ritSelector;let rule=lazyRules[selector];(async()=>{for(let asset of rule.assets){await loadAsset(asset)}if(typeof rule['function']=='string'){window[rule['function']](selector)}if(typeof rule['function']=='function'){rule['function'](selector)}})();observer.unobserve(entries[0].target)},{threshold:0.01});for(let key in lazyRules){let selector=key;let target=document.querySelector(selector);target.dataset.ritSelector=selector;observer.observe(target)}}if(Object.keys(instantRules).length>0){(async()=>{for(let key in instantRules){let rule=instantRules[key];for(let asset of rule.assets){await loadAsset(asset)}if(typeof rule['function']=='string'){window[rule['function']](key)}if(typeof rule['function']=='function'){rule['function'](key)}}})()}return this}
